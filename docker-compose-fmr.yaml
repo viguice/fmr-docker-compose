@@ -14,7 +14,8 @@ services:
       - FMR_DB_PWD=${FMR_DB_PWD:-fmr_password}
       - FMR_DEFAULT_AGENCY=${FMR_DEFAULT_AGENCY:-SDMX}
       - FMR_NAME=${FMR_NAME:-Fusion Metadata Registry}
-      - FMR_URL=${FMR_URL:-http://localhost:8080}
+      - FMR_HOST=${FMR_HOST:-localhost}
+      - FMR_PORT=${FMR_PORT:-8080}
       - FMR_COLOUR=${FMR_COLOUR:-#1AC6A9}
       - FMR_SUPPORTEMAIL=${FMR_SUPPORTEMAIL:-support@metadatatechnology.com}
       - FMR_SUPPORTURL=${FMR_SUPPORTURL:-https://fmrwiki.sdmxcloud.org/Main_Page}
@@ -33,6 +34,11 @@ services:
     ports:
       - "${FMR_PORT:-8080}:8080"
     restart: unless-stopped
+    healthcheck:
+      test: curl -f http://localhost:8080/ws/fusion/info/product || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
       mariadb:
         condition: service_healthy
