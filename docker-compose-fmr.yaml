@@ -1,0 +1,73 @@
+services:
+
+  init_fmr:
+    build:
+      context: .
+      dockerfile: Dockerfile.init
+    pull_policy: build
+    container_name: fmr_init
+    environment:
+      - FMR_USER=${FMR_USER:-root}
+      - FMR_PWD=${FMR_PWD:-password}
+      - FMR_DB=${FMR_DB:-fusion_registry}
+      - FMR_DB_USER=${FMR_DB_USER:-fmr_user}
+      - FMR_DB_PWD=${FMR_DB_PWD:-fmr_password}
+      - FMR_DEFAULT_AGENCY=${FMR_DEFAULT_AGENCY:-SDMX}
+      - FMR_NAME=${FMR_NAME:-Fusion Metadata Registry}
+      - FMR_URL=${FMR_URL:-http://localhost:8080}
+      - FMR_COLOUR=${FMR_COLOUR:-#1AC6A9}
+      - FMR_SUPPORTEMAIL=${FMR_SUPPORTEMAIL:-support@metadatatechnology.com}
+      - FMR_SUPPORTURL=${FMR_SUPPORTURL:-https://fmrwiki.sdmxcloud.org/Main_Page}
+    volumes:
+      - fmr-properties:/app/output
+    restart: "no"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - fmr_network
+
+  fmr:
+    image: "sdmxio/fmr:${FMR_IMAGE_TAG:-11.19.4}"
+    container_name: fmr
+    ports:
+      - "${FMR_PORT:-8080}:8080"
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      init_fmr:
+        condition: service_completed_successfully
+    networks:
+      - fmr_network
+    volumes:
+      - fmr-properties:/root/MetadataTechnology/FusionRegistry
+
+  mariadb:
+    image: "mariadb:${MARIADB_IMAGE_TAG:-11.8.3}"
+    container_name: mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD:-password}"
+      MARIADB_USER: "${FMR_DB_USER:-fmr_user}"
+      MARIADB_PASSWORD: "${FMR_DB_PWD:-fmr_password}"
+      MARIADB_DATABASE: "${FMR_DB:-fusion_registry}"
+    restart: unless-stopped
+    networks:
+      - fmr_network
+    healthcheck:
+      test: bash healthcheck.sh --su-mysql --connect --innodb_initialized
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  mariadb-data:
+  fmr-properties:
+
+networks:
+  fmr_network:
+    name: fmr_network
